@@ -297,6 +297,7 @@
 
 			var animate = function () {
 				mesh.rotation.y += 0.001;
+				mesh.scale.set(3.2, 2.2, 0.1);
 				requestAnimationFrame( animate );
 
 				if ( video.readyState === video.HAVE_ENOUGH_DATA ) {
