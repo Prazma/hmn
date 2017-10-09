@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Webcam Displace</title>
+		<style>
+			body {
+				margin: 0;
+				background-color: #000000;
+				overflow: hidden;
+			}
+
+			input[type='range'] {
+				-webkit-appearance: none;
+				background: rgba(127,127,127,0.5);
+				height: 10px;
+			}
+
+			input[type='range']::-webkit-slider-thumb {
+				-webkit-appearance: none;
+				background: rgba(255,255,255,1);
+				height: 10px;
+				width: 10px;
+				cursor: pointer;
+			}
+
+			#slider {
+				position: absolute;
+				top: 40px;
+				right: 40px;
+			}
+
+			#save {
+				position: absolute;
+				bottom: 40px;
+				right: 40px;
+				border: 0px;
+				padding: 4px 8px;
+				background: rgb(255,255,255);
+				color: rgb(0,0,0);
+				cursor: pointer;
+			}
+
+		</style>
+	</head>
+	<body>
+
+		<script type="text/javascript">
+		  var _gaq = _gaq || [];
+		  _gaq.push(['_setAccount', 'UA-86951-7']);
+		  _gaq.push(['_trackPageview']);
+
+		  (function() {
+		    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+		    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+		    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ga);
+		  })();
+		</script>
+
+		<input id="slider" type="range" min="-800" max="800" value="200">
+		<input id="save" type="button" value="SAVE">
+
+		<script src="three.min.js"></script>
+
+		<script id="vs" type="x-shader/x-vertex">
+
+			uniform float amount;
+			uniform sampler2D map;
+
+			varying vec2 vUv;
+
+			void main() {
+
+				vUv = uv;
+
+				vec4 color = texture2D( map, vUv );
+				float value = ( color.r + color.g + color.b ) / 3.0;
+
+				vec4 pos = vec4( position.xy, value * amount, 1.0 );
+
+				gl_Position = projectionMatrix * modelViewMatrix * pos;
+
+			}
+
+		</script>
+
+		<script id="fs" type="x-shader/x-fragment">
+
+			uniform sampler2D map;
+
+			varying vec2 vUv;
+
+			void main() {
+
+				gl_FragColor = texture2D( map, vUv );
+
+			}
+
+		</script>
+
+		<script>
+
+			// webcam
+
+			window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
+			navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+
+			var video = document.createElement( 'video' );
+			video.width = 640;
+			video.height = 480;
+
+			navigator.getUserMedia( { video: true }, function ( stream ) {
+
+				if ( navigator.mozGetUserMedia !== undefined ) {
+
+					video.src = stream;
+
+				} else {
+
+					video.src = window.URL.createObjectURL( stream );
+
+				}
+
+				video.play();
+
+				init();
+
+			}, function ( error ) {
+
+				alert( 'Webcam required' );
+				console.log( error );
+
+			} );
+
+			//
+
+			var camera, scene, material, renderer;
+
+			var slider = document.getElementById( 'slider' );
+
+			var save = document.getElementById( 'save' );
+			save.addEventListener( 'click', function ( event ) {
+
+				window.open( renderer.domElement.toDataURL( 'image/png' ), '_blank' );
+
+			}, false );
+
+			var init = function () {
+
+				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera.position.z = 500;
+
+				scene = new THREE.Scene();
+
+				texture = new THREE.Texture( video );
+				texture.minFilter = THREE.LinearFilter;
+				texture.magFilter = THREE.LinearFilter;
+				texture.format = THREE.RGBFormat;
+				texture.generateMipmaps = false;
+				texture.needsUpdate = true;
+
+				//
+
+				var width = video.width;
+				var height = video.height
+
+				var triangles = width * height * 2;
+
+				var geometry = new THREE.BufferGeometry();
+				geometry.attributes = {
+					index: {
+						itemSize: 1,
+						array: new Int16Array( triangles * 3 ),
+						numItems: triangles * 3
+					},
+					position: {
+						itemSize: 3,
+						array: new Float32Array( triangles * 3 * 3 ),
+						numItems: triangles * 3 * 3
+					},
+					uv: {
+						itemSize: 2,
+						array: new Float32Array( triangles * 3 * 2 ),
+						numItems: triangles * 3 * 2
+					}
+				};
+
+				var chunkSize = 20000;
+
+				var indices = geometry.attributes.index.array;
+
+				for ( var i = 0; i < indices.length; i ++ ) {
+
+					indices[ i ] = i % ( 3 * chunkSize );
+
+				}
+
+				var positions = geometry.attributes.position.array;
+				var uvs = geometry.attributes.uv.array;
+
+				var halfWidth = width / 2;
+				var halfHeight = height / 2;
+				var i = 0, j = 0;
+
+				for ( var y = 0; y < height; y ++ ) {
+
+					for ( var x = 0; x < width; x ++ ) {
+
+						positions[ i++ ] = x - halfWidth;
+						positions[ i++ ] = y - halfHeight;
+						positions[ i++ ] = 0;
+
+						positions[ i++ ] = x - halfWidth;
+						positions[ i++ ] = y - halfHeight - 1;
+						positions[ i++ ] = 0;
+
+						positions[ i++ ] = x - halfWidth + 1;
+						positions[ i++ ] = y - halfHeight;
+						positions[ i++ ] = 0;
+
+						uvs[ j++ ] = ( x ) / width;
+						uvs[ j++ ] = ( y ) / height;
+
+						uvs[ j++ ] = ( x ) / width; 
+						uvs[ j++ ] = ( y - 1 ) / height;
+
+						uvs[ j++ ] = ( x + 1 ) / width;
+						uvs[ j++ ] = ( y ) / height;
+
+						//
+
+						positions[ i++ ] = x - halfWidth + 1;
+						positions[ i++ ] = y - halfHeight;
+						positions[ i++ ] = 0;
+
+						positions[ i++ ] = x - halfWidth;
+						positions[ i++ ] = y - halfHeight - 1;
+						positions[ i++ ] = 0;
+
+						positions[ i++ ] = x - halfWidth + 1;
+						positions[ i++ ] = y - halfHeight - 1;
+						positions[ i++ ] = 0;
+
+						uvs[ j++ ] = ( x + 1 ) / width;
+						uvs[ j++ ] = ( y ) / height;
+
+						uvs[ j++ ] = ( x ) / width; 
+						uvs[ j++ ] = ( y - 1 ) / height;
+
+						uvs[ j++ ] = ( x + 1 ) / width;
+						uvs[ j++ ] = ( y - 1 ) / height;
+
+					}
+
+				}
+
+				geometry.offsets = [];
+
+				var start = 0;
+				var index = 0;
+				var left = triangles * 3;
+
+				for ( ;; ) {
+
+					var count = Math.min( chunkSize * 3, left );
+
+					var chunk = { start: start, count: count, index: index };
+
+					geometry.offsets.push( chunk );
+
+					start += count;
+					index += chunkSize * 3;
+
+					left -= count;
+
+					if ( left <= 0 ) break;
+
+				}
+
+				geometry.computeBoundingSphere();
+
+				//
+
+				material = new THREE.ShaderMaterial( {
+
+					uniforms: {
+
+						"map": { type: "t", value: texture },
+						"amount": { type: "f", value: 200 }
+
+					},
+					vertexShader: document.getElementById( 'vs' ).textContent,
+					fragmentShader: document.getElementById( 'fs' ).textContent,
+					side: THREE.BackSide
+
+				} );
+
+				var mesh = new THREE.Mesh( geometry, material );
+				mesh.scale.x = -1;
+				scene.add( mesh );
+
+				renderer = new THREE.WebGLRenderer( { preserveDrawingBuffer: true } );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				animate();
+
+			};
+
+			var onWindowResize = function () {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			};
+
+			var animate = function () {
+
+				requestAnimationFrame( animate );
+
+				if ( video.readyState === video.HAVE_ENOUGH_DATA ) {
+
+					texture.needsUpdate = true;
+
+				}
+
+				material.uniforms.amount.value = slider.value;
+
+				renderer.render( scene, camera );
+
+			};
+
+		</script>
+	</body>
+</html>
