@@ -296,7 +296,7 @@
 			};
 
 			var animate = function () {
-
+				mesh.rotation.y += 0.001;
 				requestAnimationFrame( animate );
 
 				if ( video.readyState === video.HAVE_ENOUGH_DATA ) {
