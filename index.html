@@ -111,7 +111,7 @@
 
 			//
 
-			var camera, scene, material, renderer;
+			var camera, scene, material, renderer, mesh;
 
 			var slider = document.getElementById( 'slider' );
 
@@ -272,7 +272,7 @@
 
 				} );
 
-				var mesh = new THREE.Mesh( geometry, material );
+				mesh = new THREE.Mesh( geometry, material );
 				mesh.scale.x = -1;
 				scene.add( mesh );
 
